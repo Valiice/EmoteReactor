@@ -1,0 +1,14 @@
+{
+  "Author": "Vali",
+  "Name": "EmoteReactor",
+  "InternalName": "EmoteReactor",
+  "Punchline": "React with an emote when someone emotes at you",
+  "Description": "Define rules: when a player targets you and performs an emote, automatically perform an emote back.",
+  "RepoUrl": "https://github.com/Valiice/EmoteReactor",
+  "ApplicableVersion": "any",
+  "Tags": [
+    "emote",
+    "social",
+    "reaction"
+  ]
+}
