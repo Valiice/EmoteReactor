@@ -1,0 +1,27 @@
+# Local design/brainstorming docs — keep out of the public repo
+docs/
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+*.user
+*.suo
+
+# IDE / editor
+.vs/
+.idea/
+.vscode/
+*.userprefs
+
+# Dalamud local dev
+dalamud/
+packages/
+
+# Claude / tooling local state
+.claude/
+
+# OS junk
+Thumbs.db
+desktop.ini
+.DS_Store
