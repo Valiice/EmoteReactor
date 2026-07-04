@@ -74,6 +74,17 @@ public sealed class ConfigWindow : Window
 
     private void DrawDiagnosticsPanel()
     {
+        var debugLogging = _config.DebugLogging;
+        if (ImGui.Checkbox("Debug logging (to /xllog)", ref debugLogging))
+        {
+            _config.DebugLogging = debugLogging;
+            _config.Save();
+        }
+
+        // Status and counters are diagnostics: only shown while debug logging is on.
+        if (!_config.DebugLogging)
+            return;
+
         if (_diagnostics.DetectionAvailable)
             ImGui.TextColored(new Vector4(0.2f, 0.85f, 0.2f, 1f), "Emote detection: active");
         else
@@ -85,13 +96,6 @@ public sealed class ConfigWindow : Window
             ImGui.TextColored(new Vector4(0.95f, 0.25f, 0.25f, 1f), "Emote sending: SIGNATURE FAILED (won't emote back)");
 
         ImGui.Text($"Emotes seen: {_diagnostics.EmotesSeen}  ·  Directed at you: {_diagnostics.DirectedAtYou}  ·  Reactions fired: {_diagnostics.ReactionsFired}");
-
-        var debugLogging = _config.DebugLogging;
-        if (ImGui.Checkbox("Debug logging (to /xllog)", ref debugLogging))
-        {
-            _config.DebugLogging = debugLogging;
-            _config.Save();
-        }
     }
 
     private void DrawRule(ReactionRule rule, ref ReactionRule? toRemove)
