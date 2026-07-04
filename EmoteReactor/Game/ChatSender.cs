@@ -2,7 +2,6 @@ using System;
 using System.Runtime.InteropServices;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
-using FFXIVClientStructs.FFXIV.Client.System.String;
 
 namespace EmoteReactor.Game;
 
@@ -15,17 +14,13 @@ public sealed unsafe class ChatSender
     // NOTE: verify these signatures against the current game version before shipping.
     private const string ProcessChatBoxSig =
         "48 89 5C 24 ?? 57 48 83 EC 20 48 8B FA 48 8B D9 45 84 C9";
-    private const string SanitiseSig =
-        "E8 ?? ?? ?? ?? EB 0A 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8D 8D";
 
     private delegate void ProcessChatBoxDelegate(IntPtr uiModule, IntPtr message, IntPtr unused, byte a4);
-    private delegate void SanitiseStringDelegate(Utf8String* text, int flags, IntPtr unused);
 
     private readonly IPluginLog _log;
     private readonly ProcessChatBoxDelegate? _processChatBox;
-    private readonly SanitiseStringDelegate? _sanitise;
 
-    public bool IsAvailable => _processChatBox is not null && _sanitise is not null;
+    public bool IsAvailable => _processChatBox is not null;
 
     public ChatSender(ISigScanner sigScanner, IPluginLog log)
     {
@@ -34,8 +29,6 @@ public sealed unsafe class ChatSender
         {
             _processChatBox = Marshal.GetDelegateForFunctionPointer<ProcessChatBoxDelegate>(
                 sigScanner.ScanText(ProcessChatBoxSig));
-            _sanitise = Marshal.GetDelegateForFunctionPointer<SanitiseStringDelegate>(
-                sigScanner.ScanText(SanitiseSig));
         }
         catch (Exception ex)
         {
