@@ -127,11 +127,15 @@ public sealed class ConfigWindow : Window
 
         var min = rule.MinDelaySeconds;
         var max = rule.MaxDelaySeconds;
-        ImGui.SetNextItemWidth(120);
-        if (ImGui.InputFloat("Delay min (s)", ref min)) { rule.MinDelaySeconds = Math.Max(0f, min); _config.Save(); }
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(120);
-        if (ImGui.InputFloat("Delay max (s)", ref max)) { rule.MaxDelaySeconds = Math.Max(0f, max); _config.Save(); }
+        ImGui.SetNextItemWidth(244);
+        if (ImGui.DragFloatRange2("Reaction delay (s)", ref min, ref max, 0.05f, 0f, 30f, "min %.1fs", "max %.1fs", ImGuiSliderFlags.AlwaysClamp))
+        {
+            rule.MinDelaySeconds = Math.Max(0f, min);
+            rule.MaxDelaySeconds = Math.Max(rule.MinDelaySeconds, max);
+            _config.Save();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Reacts after a random wait in this range. Drag the left handle for the minimum, the right for the maximum. Set both to 0 for instant.");
 
         if (ImGui.Button("Delete rule"))
             toRemove = rule;
