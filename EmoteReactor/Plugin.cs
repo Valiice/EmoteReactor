@@ -2,6 +2,9 @@ using Dalamud.Game.Command;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using EmoteReactor.Emotes;
+using EmoteReactor.Game;
+using EmoteReactor.Reactions;
 
 namespace EmoteReactor;
 
@@ -17,15 +20,35 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IGameInteropProvider GameInteropProvider { get; private set; } = null!;
     [PluginService] internal static INotificationManager NotificationManager { get; private set; } = null!;
+    [PluginService] internal static ISigScanner SigScanner { get; private set; } = null!;
 
     private const string CommandName = "/emotereactor";
 
     public Config Config { get; init; }
 
+    private readonly IEmoteCatalog _catalog;
+    private readonly ChatSender _chatSender;
+    private readonly EmoteReaderHook _emoteReaderHook;
+    private readonly ReactionEngine _engine;
+    private readonly EmoteExecutor _executor;
+
     public Plugin()
     {
         Config = PluginInterface.GetPluginConfig() as Config ?? new Config();
         Config.Initialize(PluginInterface);
+
+        _catalog = EmoteCatalogFactory.Build(DataManager);
+        _chatSender = new ChatSender(SigScanner, PluginLog);
+
+        var clock = new SystemClock();
+        _engine = new ReactionEngine(Config, clock, new SystemRandomProvider());
+        var performer = new GameReactionPerformer(_chatSender, _catalog, TargetManager);
+        _executor = new EmoteExecutor(clock, performer);
+
+        _emoteReaderHook = new EmoteReaderHook(GameInteropProvider, ObjectTable, PluginLog);
+        _emoteReaderHook.OnEmote += HandleEmote;
+
+        Framework.Update += OnFrameworkUpdate;
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
@@ -33,13 +56,28 @@ public sealed class Plugin : IDalamudPlugin
         });
     }
 
+    private void HandleEmote(EmoteEvent evt)
+    {
+        var localPlayer = ObjectTable.LocalPlayer;
+        if (localPlayer is null)
+            return;
+
+        foreach (var scheduled in _engine.Evaluate(evt, localPlayer.GameObjectId))
+            _executor.Enqueue(scheduled);
+    }
+
+    private void OnFrameworkUpdate(IFramework framework) => _executor.Update();
+
     private void OnCommand(string command, string args)
     {
-        // Wired to open the config window in Task 8.
+        // Config window opening is added in Task 9.
     }
 
     public void Dispose()
     {
+        Framework.Update -= OnFrameworkUpdate;
+        _emoteReaderHook.OnEmote -= HandleEmote;
+        _emoteReaderHook.Dispose();
         CommandManager.RemoveHandler(CommandName);
     }
 }
