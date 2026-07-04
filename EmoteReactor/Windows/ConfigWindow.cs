@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
+using Dalamud.Interface.Components;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
@@ -17,6 +19,7 @@ public sealed class ConfigWindow : Window
     private readonly Diagnostics _diagnostics;
     private readonly Dictionary<Guid, string> _triggerSearch = new();
     private readonly Dictionary<Guid, string> _reactionSearch = new();
+    private float _kofiButtonWidth;
 
     public ConfigWindow(Config config, IEmoteCatalog catalog, ITextureProvider textureProvider, Diagnostics diagnostics)
         : base("EmoteReactor Configuration###EmoteReactorConfig")
@@ -31,6 +34,7 @@ public sealed class ConfigWindow : Window
 
     public override void Draw()
     {
+        DrawKofiButton();
         DrawDiagnosticsPanel();
         ImGui.Separator();
 
@@ -70,6 +74,24 @@ public sealed class ConfigWindow : Window
             _config.Rules.Remove(toRemove);
             _config.Save();
         }
+    }
+
+    private void DrawKofiButton()
+    {
+        var startPos = ImGui.GetCursorPos();
+        if (_kofiButtonWidth > 0)
+        {
+            ImGui.SetCursorPosX(ImGui.GetWindowContentRegionMax().X - _kofiButtonWidth);
+        }
+        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Coffee, "Support",
+            new Vector4(1.0f, 0.35f, 0.35f, 0.9f),
+            new Vector4(1.0f, 0.25f, 0.25f, 1.0f),
+            new Vector4(1.0f, 0.35f, 0.35f, 0.75f)))
+        {
+            Dalamud.Utility.Util.OpenLink("https://ko-fi.com/valiice");
+        }
+        _kofiButtonWidth = ImGui.GetItemRectSize().X;
+        ImGui.SetCursorPos(startPos);
     }
 
     private void DrawDiagnosticsPanel()
