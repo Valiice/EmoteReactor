@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
@@ -37,6 +38,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly EmoteReaderHook _emoteReaderHook;
     private readonly ReactionEngine _engine;
     private readonly EmoteExecutor _executor;
+    private readonly Diagnostics _diagnostics;
 
     public Plugin()
     {
@@ -44,21 +46,25 @@ public sealed class Plugin : IDalamudPlugin
         Config.Initialize(PluginInterface);
 
         _catalog = EmoteCatalogFactory.Build(DataManager);
-
-        ConfigWindow = new ConfigWindow(Config, _catalog, TextureProvider);
-        WindowSystem.AddWindow(ConfigWindow);
-        PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
-        PluginInterface.UiBuilder.OpenConfigUi += () => ConfigWindow.IsOpen = true;
+        _diagnostics = new Diagnostics();
 
         _chatSender = new ChatSender(SigScanner, PluginLog);
 
         var clock = new SystemClock();
         _engine = new ReactionEngine(Config, clock, new SystemRandomProvider());
-        var performer = new GameReactionPerformer(_chatSender, _catalog, TargetManager);
+        var performer = new GameReactionPerformer(_chatSender, _catalog, TargetManager, Config, _diagnostics);
         _executor = new EmoteExecutor(clock, performer);
 
         _emoteReaderHook = new EmoteReaderHook(GameInteropProvider, ObjectTable, PluginLog);
         _emoteReaderHook.OnEmote += HandleEmote;
+
+        _diagnostics.DetectionAvailable = _emoteReaderHook.IsAvailable;
+        _diagnostics.SendingAvailable = _chatSender.IsAvailable;
+
+        ConfigWindow = new ConfigWindow(Config, _catalog, TextureProvider, _diagnostics);
+        WindowSystem.AddWindow(ConfigWindow);
+        PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
+        PluginInterface.UiBuilder.OpenConfigUi += () => ConfigWindow.IsOpen = true;
 
         Framework.Update += OnFrameworkUpdate;
 
@@ -74,7 +80,23 @@ public sealed class Plugin : IDalamudPlugin
         if (localPlayer is null)
             return;
 
-        foreach (var scheduled in _engine.Evaluate(evt, localPlayer.GameObjectId))
+        _diagnostics.IncrementEmotesSeen();
+
+        var directedAtMe = evt.TargetObjectId == localPlayer.GameObjectId;
+        if (directedAtMe)
+            _diagnostics.IncrementDirectedAtYou();
+
+        var scheduledList = new List<ScheduledReaction>(_engine.Evaluate(evt, localPlayer.GameObjectId));
+
+        if (Config.DebugLogging)
+        {
+            PluginLog.Information(
+                $"[EmoteReactor] Emote seen: emoteId={evt.EmoteId} from={evt.InstigatorObjectId:X} " +
+                $"target={evt.TargetObjectId:X} me={localPlayer.GameObjectId:X} directedAtMe={directedAtMe} " +
+                $"matchedRules={scheduledList.Count}");
+        }
+
+        foreach (var scheduled in scheduledList)
             _executor.Enqueue(scheduled);
     }
 
