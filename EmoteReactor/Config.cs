@@ -16,6 +16,7 @@ public class Config : IPluginConfiguration
 
     public float GlobalThrottleSeconds { get; set; }
     public List<ReactionRule> Rules { get; set; } = [];
+    public bool DebugLogging { get; set; }
 
     public void Initialize(IDalamudPluginInterface pluginInterface) => _pluginInterface = pluginInterface;
 

@@ -14,21 +14,26 @@ public sealed class ConfigWindow : Window
     private readonly Config _config;
     private readonly IEmoteCatalog _catalog;
     private readonly ITextureProvider _textureProvider;
+    private readonly Diagnostics _diagnostics;
     private readonly Dictionary<Guid, string> _triggerSearch = new();
     private readonly Dictionary<Guid, string> _reactionSearch = new();
 
-    public ConfigWindow(Config config, IEmoteCatalog catalog, ITextureProvider textureProvider)
+    public ConfigWindow(Config config, IEmoteCatalog catalog, ITextureProvider textureProvider, Diagnostics diagnostics)
         : base("EmoteReactor Configuration###EmoteReactorConfig")
     {
         _config = config;
         _catalog = catalog;
         _textureProvider = textureProvider;
+        _diagnostics = diagnostics;
         Size = new Vector2(720, 500);
         SizeCondition = ImGuiCond.FirstUseEver;
     }
 
     public override void Draw()
     {
+        DrawDiagnosticsPanel();
+        ImGui.Separator();
+
         var enabled = _config.Enabled;
         if (ImGui.Checkbox("Enabled", ref enabled))
         {
@@ -67,27 +72,54 @@ public sealed class ConfigWindow : Window
         }
     }
 
+    private void DrawDiagnosticsPanel()
+    {
+        if (_diagnostics.DetectionAvailable)
+            ImGui.TextColored(new Vector4(0.2f, 0.85f, 0.2f, 1f), "Emote detection: active");
+        else
+            ImGui.TextColored(new Vector4(0.95f, 0.25f, 0.25f, 1f), "Emote detection: SIGNATURE FAILED (won't detect emotes)");
+
+        if (_diagnostics.SendingAvailable)
+            ImGui.TextColored(new Vector4(0.2f, 0.85f, 0.2f, 1f), "Emote sending: active");
+        else
+            ImGui.TextColored(new Vector4(0.95f, 0.25f, 0.25f, 1f), "Emote sending: SIGNATURE FAILED (won't emote back)");
+
+        ImGui.Text($"Emotes seen: {_diagnostics.EmotesSeen}  ·  Directed at you: {_diagnostics.DirectedAtYou}  ·  Reactions fired: {_diagnostics.ReactionsFired}");
+
+        var debugLogging = _config.DebugLogging;
+        if (ImGui.Checkbox("Debug logging (to /xllog)", ref debugLogging))
+        {
+            _config.DebugLogging = debugLogging;
+            _config.Save();
+        }
+    }
+
     private void DrawRule(ReactionRule rule, ref ReactionRule? toRemove)
     {
         var enabled = rule.Enabled;
-        if (ImGui.Checkbox("On", ref enabled)) { rule.Enabled = enabled; _config.Save(); }
+        if (ImGui.Checkbox("Enabled", ref enabled)) { rule.Enabled = enabled; _config.Save(); }
 
         ImGui.SameLine();
-        DrawEmoteCombo("When someone does", rule.TriggerEmoteId, _triggerSearch, rule.Id,
-            id => { rule.TriggerEmoteId = id; _config.Save(); });
+        DrawEmoteCombo("When someone does", "trigger", rule.TriggerEmoteId, _triggerSearch, rule.Id,
+            id => { rule.TriggerEmoteId = id; _config.Save(); },
+            "The emote another player must perform on you.");
 
         ImGui.SameLine();
-        DrawEmoteCombo("I react with", rule.ReactionEmoteId, _reactionSearch, rule.Id,
-            id => { rule.ReactionEmoteId = id; _config.Save(); });
+        DrawEmoteCombo("I react with", "reaction", rule.ReactionEmoteId, _reactionSearch, rule.Id,
+            id => { rule.ReactionEmoteId = id; _config.Save(); },
+            "The emote you automatically perform back.");
 
         var motion = rule.MotionOnly;
         if (ImGui.Checkbox("Motion only", ref motion)) { rule.MotionOnly = motion; _config.Save(); }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Play just the animation, with no chat text line.");
         ImGui.SameLine();
         var direct = rule.DirectAtInstigator;
         if (ImGui.Checkbox("At them", ref direct)) { rule.DirectAtInstigator = direct; _config.Save(); }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Target the person and emote AT them. Off = just perform the emote without targeting.");
         ImGui.SameLine();
         var restore = rule.RestorePreviousTarget;
         if (ImGui.Checkbox("Restore target", ref restore)) { rule.RestorePreviousTarget = restore; _config.Save(); }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("After reacting, re-select whoever you had targeted before.");
 
         var cooldown = rule.CooldownSeconds;
         ImGui.SetNextItemWidth(120);
@@ -105,9 +137,13 @@ public sealed class ConfigWindow : Window
             toRemove = rule;
     }
 
-    private void DrawEmoteCombo(string label, uint currentId, Dictionary<Guid, string> searchState,
-        Guid ruleId, Action<uint> onSelect)
+    private void DrawEmoteCombo(string leadingText, string comboKind, uint currentId, Dictionary<Guid, string> searchState,
+        Guid ruleId, Action<uint> onSelect, string? tooltip = null)
     {
+        ImGui.Text(leadingText);
+        if (tooltip is not null && ImGui.IsItemHovered()) ImGui.SetTooltip(tooltip);
+        ImGui.SameLine();
+
         var current = _catalog.FindById(currentId);
         var preview = current?.Name ?? "(none)";
         var iconSize = ImGui.GetTextLineHeight();
@@ -115,14 +151,14 @@ public sealed class ConfigWindow : Window
         DrawEmoteIcon(current?.IconId ?? 0, iconSize);
         ImGui.SameLine();
         ImGui.SetNextItemWidth(200);
-        if (!ImGui.BeginCombo(label, preview))
+        if (!ImGui.BeginCombo($"##{comboKind}{ruleId}", preview))
             return;
 
         if (!searchState.TryGetValue(ruleId, out var search))
             search = string.Empty;
 
         ImGui.SetNextItemWidth(-1);
-        if (ImGui.InputTextWithHint($"##search{label}", "Search…", ref search, 64))
+        if (ImGui.InputTextWithHint($"##search{comboKind}{ruleId}", "Search…", ref search, 64))
             searchState[ruleId] = search;
 
         foreach (var emote in _catalog.Search(search))
