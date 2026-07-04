@@ -89,7 +89,8 @@ public sealed class Plugin : IDalamudPlugin
 
         var scheduledList = new List<ScheduledReaction>(_engine.Evaluate(evt, localPlayer.GameObjectId));
 
-        if (Config.DebugLogging)
+        // Only log emotes actually aimed at us - logging every nearby emote from everyone floods /xllog.
+        if (Config.DebugLogging && directedAtMe)
         {
             PluginLog.Information(
                 $"[EmoteReactor] Emote seen: emoteId={evt.EmoteId} from={evt.InstigatorObjectId:X} " +
