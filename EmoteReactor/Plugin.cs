@@ -23,7 +23,6 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IGameInteropProvider GameInteropProvider { get; private set; } = null!;
     [PluginService] internal static INotificationManager NotificationManager { get; private set; } = null!;
-    [PluginService] internal static ISigScanner SigScanner { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
 
     private const string CommandName = "/emotereactor";
@@ -42,20 +41,22 @@ public sealed class Plugin : IDalamudPlugin
 
     public Plugin()
     {
+        ECommons.ECommonsMain.Init(PluginInterface, this);
+
         Config = PluginInterface.GetPluginConfig() as Config ?? new Config();
         Config.Initialize(PluginInterface);
 
         _catalog = EmoteCatalogFactory.Build(DataManager);
         _diagnostics = new Diagnostics();
 
-        _chatSender = new ChatSender(SigScanner, PluginLog);
+        _chatSender = new ChatSender(PluginLog);
 
         var clock = new SystemClock();
         _engine = new ReactionEngine(Config, clock, new SystemRandomProvider());
         var performer = new GameReactionPerformer(_chatSender, _catalog, TargetManager, Config, _diagnostics);
         _executor = new EmoteExecutor(clock, performer);
 
-        _emoteReaderHook = new EmoteReaderHook(GameInteropProvider, ObjectTable, PluginLog);
+        _emoteReaderHook = new EmoteReaderHook(GameInteropProvider, PluginLog);
         _emoteReaderHook.OnEmote += HandleEmote;
 
         _diagnostics.DetectionAvailable = _emoteReaderHook.IsAvailable;
@@ -112,5 +113,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.Draw -= WindowSystem.Draw;
         WindowSystem.RemoveAllWindows();
         CommandManager.RemoveHandler(CommandName);
+
+        ECommons.ECommonsMain.Dispose();
     }
 }

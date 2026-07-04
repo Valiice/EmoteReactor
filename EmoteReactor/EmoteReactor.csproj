@@ -17,4 +17,8 @@
         <_Parameter1>EmoteReactor.Tests</_Parameter1>
       </AssemblyAttribute>
     </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
+    </ItemGroup>
 </Project>
