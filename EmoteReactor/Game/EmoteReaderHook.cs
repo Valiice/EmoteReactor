@@ -11,7 +11,7 @@ namespace EmoteReactor.Game;
 /// local player (or otherwise observed). Not unit-tested: verified by build +
 /// in-game (Task 10).
 /// </summary>
-public sealed unsafe class EmoteReaderHook : IDisposable
+public sealed class EmoteReaderHook : IDisposable
 {
     // NOTE: verify this signature against the current game version before shipping.
     // Known community "on emote" signature (EmoteReaderHooks-style).
@@ -25,7 +25,7 @@ public sealed unsafe class EmoteReaderHook : IDisposable
     private readonly Hook<OnEmoteDelegate>? _hook;
 
     public event Action<EmoteEvent>? OnEmote;
-    public bool IsAvailable => _hook is not null;
+    public bool IsAvailable => _hook is { IsEnabled: true };
 
     public EmoteReaderHook(IGameInteropProvider interop, IObjectTable objectTable, IPluginLog log)
     {

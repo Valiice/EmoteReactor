@@ -128,4 +128,32 @@ public class ReactionEngineTests
         var (_, clock, _, engine) = Build(c => c.Rules.Add(Rule(5, 9)));
         engine.Evaluate(new EmoteEvent(Them, 5, Me), Me)[0].FireAt.Should().Be(clock.Now);
     }
+
+    [Fact]
+    public void Multiple_rules_sharing_a_trigger_all_fire_from_one_event()
+    {
+        var (_, _, _, engine) = Build(c =>
+        {
+            c.GlobalThrottleSeconds = 3;
+            c.Rules.Add(Rule(5, 9));
+            c.Rules.Add(Rule(5, 8));
+        });
+
+        var result = engine.Evaluate(new EmoteEvent(Them, 5, Me), Me);
+
+        result.Should().HaveCount(2);
+        result.Select(r => r.Rule.ReactionEmoteId).Should().BeEquivalentTo(new uint[] { 9, 8 });
+    }
+
+    [Fact]
+    public void Inverted_delay_range_uses_min()
+    {
+        var (_, clock, random, engine) = Build(c =>
+            c.Rules.Add(Rule(5, 9, r => { r.MinDelaySeconds = 5; r.MaxDelaySeconds = 2; })));
+        random.Value = 0.9; // should be irrelevant when min > max
+
+        var result = engine.Evaluate(new EmoteEvent(Them, 5, Me), Me);
+        result.Should().ContainSingle();
+        result[0].FireAt.Should().Be(clock.Now.AddSeconds(5));
+    }
 }
