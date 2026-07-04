@@ -23,6 +23,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IGameInteropProvider GameInteropProvider { get; private set; } = null!;
     [PluginService] internal static INotificationManager NotificationManager { get; private set; } = null!;
     [PluginService] internal static ISigScanner SigScanner { get; private set; } = null!;
+    [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
 
     private const string CommandName = "/emotereactor";
 
@@ -44,7 +45,7 @@ public sealed class Plugin : IDalamudPlugin
 
         _catalog = EmoteCatalogFactory.Build(DataManager);
 
-        ConfigWindow = new ConfigWindow(Config, _catalog);
+        ConfigWindow = new ConfigWindow(Config, _catalog, TextureProvider);
         WindowSystem.AddWindow(ConfigWindow);
         PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi += () => ConfigWindow.IsOpen = true;

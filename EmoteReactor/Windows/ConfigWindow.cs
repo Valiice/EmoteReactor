@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Textures;
 using Dalamud.Interface.Windowing;
+using Dalamud.Plugin.Services;
 using EmoteReactor.Emotes;
 
 namespace EmoteReactor.Windows;
@@ -11,14 +13,16 @@ public sealed class ConfigWindow : Window
 {
     private readonly Config _config;
     private readonly IEmoteCatalog _catalog;
+    private readonly ITextureProvider _textureProvider;
     private readonly Dictionary<Guid, string> _triggerSearch = new();
     private readonly Dictionary<Guid, string> _reactionSearch = new();
 
-    public ConfigWindow(Config config, IEmoteCatalog catalog)
+    public ConfigWindow(Config config, IEmoteCatalog catalog, ITextureProvider textureProvider)
         : base("EmoteReactor Configuration###EmoteReactorConfig")
     {
         _config = config;
         _catalog = catalog;
+        _textureProvider = textureProvider;
         Size = new Vector2(720, 500);
         SizeCondition = ImGuiCond.FirstUseEver;
     }
@@ -106,6 +110,10 @@ public sealed class ConfigWindow : Window
     {
         var current = _catalog.FindById(currentId);
         var preview = current?.Name ?? "(none)";
+        var iconSize = ImGui.GetTextLineHeight();
+
+        DrawEmoteIcon(current?.IconId ?? 0, iconSize);
+        ImGui.SameLine();
         ImGui.SetNextItemWidth(200);
         if (!ImGui.BeginCombo(label, preview))
             return;
@@ -119,10 +127,32 @@ public sealed class ConfigWindow : Window
 
         foreach (var emote in _catalog.Search(search))
         {
+            DrawEmoteIcon(emote.IconId, iconSize);
+            ImGui.SameLine();
             if (ImGui.Selectable(emote.Name, emote.Id == currentId))
                 onSelect(emote.Id);
         }
 
         ImGui.EndCombo();
+    }
+
+    private void DrawEmoteIcon(uint iconId, float size)
+    {
+        var iconVec = new Vector2(size, size);
+
+        if (iconId == 0)
+        {
+            ImGui.Dummy(iconVec);
+            return;
+        }
+
+        var wrap = _textureProvider.GetFromGameIcon(new GameIconLookup(iconId)).GetWrapOrDefault();
+        if (wrap is null)
+        {
+            ImGui.Dummy(iconVec);
+            return;
+        }
+
+        ImGui.Image(wrap.Handle, iconVec);
     }
 }
