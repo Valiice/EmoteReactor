@@ -1,10 +1,12 @@
 using Dalamud.Game.Command;
+using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using EmoteReactor.Emotes;
 using EmoteReactor.Game;
 using EmoteReactor.Reactions;
+using EmoteReactor.Windows;
 
 namespace EmoteReactor;
 
@@ -26,6 +28,9 @@ public sealed class Plugin : IDalamudPlugin
 
     public Config Config { get; init; }
 
+    public readonly WindowSystem WindowSystem = new("EmoteReactor");
+    private ConfigWindow ConfigWindow { get; init; } = null!;
+
     private readonly IEmoteCatalog _catalog;
     private readonly ChatSender _chatSender;
     private readonly EmoteReaderHook _emoteReaderHook;
@@ -38,6 +43,12 @@ public sealed class Plugin : IDalamudPlugin
         Config.Initialize(PluginInterface);
 
         _catalog = EmoteCatalogFactory.Build(DataManager);
+
+        ConfigWindow = new ConfigWindow(Config, _catalog);
+        WindowSystem.AddWindow(ConfigWindow);
+        PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
+        PluginInterface.UiBuilder.OpenConfigUi += () => ConfigWindow.IsOpen = true;
+
         _chatSender = new ChatSender(SigScanner, PluginLog);
 
         var clock = new SystemClock();
@@ -68,16 +79,15 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnFrameworkUpdate(IFramework framework) => _executor.Update();
 
-    private void OnCommand(string command, string args)
-    {
-        // Config window opening is added in Task 9.
-    }
+    private void OnCommand(string command, string args) => ConfigWindow.IsOpen = true;
 
     public void Dispose()
     {
         Framework.Update -= OnFrameworkUpdate;
         _emoteReaderHook.OnEmote -= HandleEmote;
         _emoteReaderHook.Dispose();
+        PluginInterface.UiBuilder.Draw -= WindowSystem.Draw;
+        WindowSystem.RemoveAllWindows();
         CommandManager.RemoveHandler(CommandName);
     }
 }
